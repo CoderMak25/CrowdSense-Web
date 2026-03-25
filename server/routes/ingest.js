@@ -154,4 +154,64 @@ router.post('/sms', express.urlencoded({ extended: true }), smsLimiter, async (r
     }
 });
 
+// @desc    Ingest GPS tracking cluster data
+// @route   POST /api/ingest/gps
+router.post('/gps', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'GPS', rawValue: data, processedValue: count, confidence: confidence || 0.85 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'GPS', confidence: confidence || 0.85 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest Wi-Fi Probe data
+// @route   POST /api/ingest/wifi
+router.post('/wifi', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'WIFI', rawValue: data, processedValue: count, confidence: confidence || 0.70 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'WIFI', confidence: confidence || 0.70 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest Network Data (Turnstiles, ticketing)
+// @route   POST /api/ingest/network
+router.post('/network', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'NETWORK', rawValue: data, processedValue: count, confidence: confidence || 0.95 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'NETWORK', confidence: confidence || 0.95 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest Cellular Tower loads
+// @route   POST /api/ingest/cellular
+router.post('/cellular', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'CELLULAR', rawValue: data, processedValue: count, confidence: confidence || 0.80 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'CELLULAR', confidence: confidence || 0.80 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest User App Events
+// @route   POST /api/ingest/app-event
+router.post('/app-event', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, metadata, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'APP_EVENT', rawValue: metadata, processedValue: 1, confidence: confidence || 0.90 });
+        await CrowdReading.create({ venueId, zoneId, count: 1, densityLabel: 'UNKNOWN', sensorSource: 'APP_EVENT', confidence: confidence || 0.90 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
 module.exports = router;
