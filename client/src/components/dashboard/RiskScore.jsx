@@ -1,70 +1,64 @@
-import { useEffect, useState } from 'react';
-
-const RiskScore = ({ riskScore }) => {
-    // Determine color based on score (0-100)
-    let colorClass = 'text-lvlLow';
-    let label = 'Nominal';
-    
-    if (riskScore >= 80) {
-        colorClass = 'text-lvlCrit';
-        label = 'Critical Warning';
-    } else if (riskScore >= 60) {
-        colorClass = 'text-lvlHigh';
-        label = 'Elevated Risk';
-    } else if (riskScore >= 40) {
-        colorClass = 'text-lvlMed';
-        label = 'Moderate';
-    }
-
-    // SVG styling math for gauge
-    const radius = 60;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (riskScore / 100) * circumference;
+const RiskScore = ({ riskScore = 72 }) => {
+    // Determine status text based on score
+    const getStatusText = (score) => {
+        if (score >= 80) return 'Critical';
+        if (score >= 60) return 'Elevated';
+        return 'Moderate';
+    };
 
     return (
-        <>
-            <div className="flex items-center justify-between w-full mb-6">
-                <h2 className="text-base font-semibold text-textpri">Stampede Risk</h2>
-                <div className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-mono text-textsec border border-gray-200">
-                    Live Calc
-                </div>
-            </div>
-            
-            <div className="flex-1 flex flex-col items-center justify-center relative w-full">
-                <svg className="transform -rotate-90 w-40 h-40">
-                    {/* Background Circle */}
-                    <circle 
-                        cx="80" cy="80" r={radius} 
-                        stroke="currentColor" strokeWidth="12" fill="transparent"
-                        className="text-gray-100" 
-                    />
-                    {/* Progress Circle */}
-                    <circle 
-                        cx="80" cy="80" r={radius} 
-                        stroke="currentColor" strokeWidth="12" fill="transparent"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
+        <div className="flex flex-col items-center justify-between text-center relative w-full h-full">
+            {/* SVG Donut Chart */}
+            <div className="relative w-[160px] h-[160px] mt-4 mb-2 flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-180 scale-x-[-1]">
+                    {/* Background Track */}
+                    <path 
+                        className="text-[#E8E8E8]" 
+                        strokeWidth="4.5" 
+                        stroke="currentColor" 
+                        fill="none" 
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
                         strokeLinecap="round"
-                        className={`${colorClass} transition-all duration-1000 ease-in-out`}
+                    />
+                    {/* Colored Fill */}
+                    <path 
+                        className="text-[#1A5C38]" 
+                        strokeDasharray={`${riskScore}, 100`} 
+                        strokeWidth="4.5" 
+                        strokeLinecap="round" 
+                        stroke="currentColor" 
+                        fill="none" 
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                        className="transition-all duration-1000 ease-out"
                     />
                 </svg>
-                
                 {/* Center Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-4xl font-mono font-bold tracking-tighter ${colorClass}`}>
-                        {riskScore || 0}
+                    <span className="text-4xl font-semibold text-[#1A5C38] tracking-tight leading-none mt-2">
+                        {riskScore}<span className="text-xl">%</span>
                     </span>
-                    <span className="text-[10px] text-textmuted font-medium uppercase tracking-wider mt-1">/ 100</span>
+                    <span className="text-[10px] font-light text-[#6B6B6B] mt-1 uppercase tracking-wider">
+                        {getStatusText(riskScore)}
+                    </span>
                 </div>
             </div>
-            
-            <div className="mt-4 text-center w-full">
-                <p className={`text-sm font-semibold ${colorClass}`}>{label}</p>
-                <p className="text-xs text-textsec mt-1 px-4 leading-relaxed">
-                    Based on density, surge rates, and anomalies across all zones.
-                </p>
+
+            {/* Legend */}
+            <div className="flex justify-center gap-4 w-full mt-auto pt-4">
+                <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#3D9E68]"></div>
+                    <span className="text-[11px] font-light text-[#6B6B6B]">Safe</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#1A5C38]"></div>
+                    <span className="text-[11px] font-light text-[#6B6B6B]">Risk</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-striped border border-[#E8E8E8]"></div>
+                    <span className="text-[11px] font-light text-[#6B6B6B]">N/A</span>
+                </div>
             </div>
-        </>
+        </div>
     );
 };
 

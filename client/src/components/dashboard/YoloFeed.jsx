@@ -1,85 +1,46 @@
-import { Video, Maximize } from 'lucide-react';
-import { useState, useEffect } from 'react';
-
-// Generates fake bouncing bounding boxes for the "Live Feed" effect
-const BoundingBox = ({ initialX, initialY, color }) => {
-    const [pos, setPos] = useState({ x: initialX, y: initialY });
-    
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setPos(prev => ({
-                x: prev.x + (Math.random() * 4 - 2), // jitter x
-                y: prev.y + (Math.random() * 4 - 2)  // jitter y
-            }));
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    return (
-        <div 
-            className="absolute border-2 transition-all duration-1000 ease-in-out"
-            style={{ 
-                left: `${pos.x}%`, 
-                top: `${pos.y}%`, 
-                width: '15%', 
-                height: '35%', 
-                borderColor: color,
-                boxShadow: `0 0 8px ${color}40 inset, 0 0 8px ${color}40`
-            }}
-        >
-            <div className="absolute -top-4 w-full text-center" style={{ color: color, fontSize: '8px', fontWeight: 'bold' }}>
-                person 0.9{Math.floor(Math.random()*9)}
-            </div>
-        </div>
-    );
-};
+import { Pause } from 'lucide-react';
 
 const YoloFeed = ({ zones }) => {
-    // Determine overall status from zones
-    const isCritical = zones?.some(z => z.densityLabel === 'CRITICAL');
-    const borderColor = isCritical ? 'border-lvlCrit' : 'border-lvlLow';
-    const boxColors = isCritical ? ['#EF4444', '#EF4444', '#EF4444'] : ['#22C55E', '#22C55E', '#F59E0B'];
-
     return (
-        <div className="bg-[#0f172a] rounded-2xl overflow-hidden relative shadow-sm hover:shadow-md transition-shadow h-full min-h-[250px] group flex flex-col border border-[#1e293b]">
-            {/* Header Overlay */}
-            <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent">
-                <div className="flex items-center gap-2">
-                    <Video size={16} className={`animate-pulse ${isCritical ? 'text-lvlCrit' : 'text-lvlLow'}`} />
-                    <span className="text-white text-xs font-medium font-mono">CAM-MainEntrance</span>
-                </div>
-                <div className="flex items-center gap-2">
-                   <span className="text-white/70 text-[10px] uppercase tracking-wider bg-black/40 px-2 py-0.5 rounded backdrop-blur">YOLOv8 Analysis</span>
-                   <button className="text-white/70 hover:text-white bg-black/40 p-1 rounded backdrop-blur transition-colors">
-                       <Maximize size={14} />
-                   </button>
-                </div>
+        <div className="ui-card-dark stat-card-gradient flex flex-col relative group h-full p-5 !border-none !rounded-[16px]">
+            <div className="flex justify-between items-center mb-4 relative z-10">
+                <h2 className="text-base font-medium text-white">Live Feed</h2>
+                <span className="bg-white/15 text-white text-[11px] font-medium px-2 py-0.5 rounded-full">CAM-04</span>
             </div>
-
-            {/* Video Content Fake Grid background */}
-            <div className="flex-1 w-full h-full relative" 
-                 style={{ 
-                     backgroundImage: 'radial-gradient(circle, #1e293b 1px, transparent 1px)', 
-                     backgroundSize: '20px 20px',
-                     backgroundPosition: '0 0'
-                 }}>
+            
+            {/* Video Placeholder Area */}
+            <div className="w-full bg-black rounded-[10px] aspect-[4/3] sm:aspect-video lg:aspect-[4/3] relative overflow-hidden flex-1 shadow-inner border border-white/10 z-10">
+                {/* Overlay Image (simulating feed) */}
+                <div className="absolute inset-0 bg-[#2D7A4F]/20 mix-blend-overlay"></div>
+                <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                 
-                {/* Simulated Bounding Boxes */}
-                <BoundingBox initialX={20} initialY={30} color={boxColors[0]} />
-                <BoundingBox initialX={45} initialY={40} color={boxColors[1]} />
-                <BoundingBox initialX={70} initialY={25} color={boxColors[2]} />
-                {isCritical && <BoundingBox initialX={55} initialY={20} color="#EF4444" />}
-                {isCritical && <BoundingBox initialX={35} initialY={50} color="#EF4444" />}
+                {/* Badges Overlay */}
+                <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2 py-1 rounded border border-white/10">
+                    <div className="w-1.5 h-1.5 bg-[#DC2626] rounded-full animate-pulse"></div>
+                    <span className="text-[10px] font-semibold text-white uppercase tracking-wider">Live</span>
+                </div>
                 
-                {/* Filter overlay */}
-                <div className="absolute inset-0 bg-blue-500/5 mix-blend-overlay pointer-events-none"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-transparent to-transparent pointer-events-none"></div>
+                <div className="absolute top-2 left-1/2 -translate-x-1/2">
+                    <span className="text-xs font-semibold text-white drop-shadow-md">94 persons</span>
+                </div>
+                
+                {/* Simulated Detection Boxes */}
+                <div className="absolute top-[30%] left-[20%] w-12 h-20 border-2 border-[#3D9E68] rounded-sm">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#3D9E68] text-[8px] font-mono-custom text-white px-1 rounded-sm">.92</div>
+                </div>
+                <div className="absolute top-[45%] left-[60%] w-10 h-16 border-2 border-[#3D9E68] rounded-sm">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#3D9E68] text-[8px] font-mono-custom text-white px-1 rounded-sm">.88</div>
+                </div>
+                <div className="absolute top-[60%] left-[40%] w-14 h-24 border-2 border-[#1A5C38] rounded-sm">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#1A5C38] text-[8px] font-mono-custom text-white px-1 rounded-sm">.75</div>
+                </div>
 
-                {/* Status Bar Overlay */}
-                <div className={`absolute bottom-0 left-0 right-0 text-center py-1.5 border-t ${borderColor} bg-black/60 backdrop-blur z-20`}>
-                    <p className={`text-[10px] font-mono font-medium uppercase tracking-[0.2em] ${isCritical ? 'text-lvlCrit' : 'text-lvlLow'}`}>
-                        {isCritical ? 'DANGER: CRUSH DETECTED' : 'NOMINAL FLOW'}
-                    </p>
+                {/* Bottom Info */}
+                <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                    <button className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center backdrop-blur-sm transition-colors">
+                        <Pause className="w-3 h-3 text-white fill-white" />
+                    </button>
+                    <span className="text-[10px] font-mono-custom text-white/50 bg-black/40 px-1 rounded">28.4 fps</span>
                 </div>
             </div>
         </div>

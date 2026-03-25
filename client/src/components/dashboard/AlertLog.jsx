@@ -1,76 +1,50 @@
-import { formatDistanceToNow } from 'date-fns';
-import useAlertStore from '../../store/alertStore';
-import { AlertTriangle, AlertOctagon, Info } from 'lucide-react';
-
-const getAlertIcon = (level) => {
-    switch (level) {
-        case 'CRITICAL': return <AlertOctagon className="text-lvlCrit w-5 h-5 flex-shrink-0" />;
-        case 'HIGH': return <AlertTriangle className="text-lvlHigh w-5 h-5 flex-shrink-0" />;
-        default: return <Info className="text-lvlMed w-5 h-5 flex-shrink-0" />;
-    }
-};
-
-const getRowClass = (level) => {
-    switch (level) {
-        case 'CRITICAL': return 'bg-lvlCrit/5 border-l-2 border-l-lvlCrit';
-        case 'HIGH': return 'bg-lvlHigh/5 border-l-2 border-l-lvlHigh';
-        default: return 'hover:bg-gray-50 border-l-2 border-l-transparent';
-    }
-};
+import { Video } from 'lucide-react';
 
 const AlertLog = () => {
-    const alerts = useAlertStore(state => state.alerts);
-
-    const displayAlerts = alerts.length > 0 ? alerts : [
-        { _id: '1', level: 'CRITICAL', zoneName: 'Platform 1', message: 'Critical overcrowding detected', timestamp: new Date(Date.now() - 60000) },
-        { _id: '2', level: 'HIGH', zoneName: 'Gate A', message: 'High density warning', timestamp: new Date(Date.now() - 3600000) }
-    ];
-
-    if (displayAlerts.length === 0) {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-textmuted mt-4">
-                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3">
-                    <Info className="w-6 h-6 text-gray-300" />
-                </div>
-                <p className="text-sm font-medium">No active alerts</p>
-                <p className="text-xs mt-1">Venue conditions are nominal.</p>
-            </div>
-        );
-    }
-
     return (
-        <div className="mt-4 flex-1 overflow-y-auto -mx-6 px-4 space-y-2">
-            {displayAlerts.map((alert) => (
-                <div key={alert._id} className={`p-4 rounded-r-xl rounded-l-sm transition-colors flex gap-4 ${getRowClass(alert.level)}`}>
-                    <div className="pt-0.5">
-                        {getAlertIcon(alert.level)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="text-sm font-semibold text-textpri truncate pr-2">
-                                {alert.zoneName}
-                            </span>
-                            <span className="text-[10px] text-textsec font-mono whitespace-nowrap pt-0.5">
-                                {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
-                            </span>
-                        </div>
-                        <p className="text-xs text-textsec leading-relaxed line-clamp-2">
-                            {alert.message}
-                        </p>
-                        
-                        {alert.level === 'CRITICAL' && (
-                            <div className="mt-3 flex gap-2">
-                                <button className="px-3 py-1.5 bg-textpri text-white text-[10px] font-medium rounded shadow-sm hover:bg-gray-800 transition-colors">
-                                    Dispatch Guards
-                                </button>
-                                <button className="px-3 py-1.5 bg-white border border-bordercol text-textpri text-[10px] font-medium rounded shadow-sm hover:bg-gray-50 transition-colors">
-                                    Dismiss
-                                </button>
+        <div className="flex flex-col h-full">
+            {/* Highlighted Alert (Critical) */}
+            <div className="bg-[#FFFFFF] border border-[#DC2626]/20 rounded-[12px] p-4 mb-4 relative overflow-hidden group">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#DC2626] animate-pulse"></div>
+                <h3 className="text-base font-semibold text-[#0D0D0D] leading-tight">Gate A — CRITICAL</h3>
+                <p className="text-xs font-light text-[#6B6B6B] mt-1.5">Zone: Gate A | Risk Score: 87/100</p>
+                <p className="text-[11px] font-mono-custom text-[#9E9E9E] mt-2 mb-3">08:42 AM – ongoing</p>
+                <button className="w-full bg-gradient-to-r from-[#1A5C38] to-[#2D8B55] text-white text-sm font-medium py-2 rounded-full hover:opacity-90 transition-all flex justify-center items-center gap-2 relative z-10 shadow-sm border-none">
+                    <Video className="w-4 h-4" strokeWidth={2} /> View Zone
+                </button>
+            </div>
+            
+            {/* Divider */}
+            <div className="h-px w-full bg-[#E8E8E8] mb-3"></div>
+            
+            {/* Alert List */}
+            <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+                <div className="flex justify-between items-start group cursor-pointer hover:bg-[#F5F5F5] p-1.5 -mx-1.5 rounded-lg transition-colors">
+                    <div className="flex items-start gap-2">
+                        <div className="w-2 h-2 rounded-full bg-[#EA580C] mt-1.5 flex-shrink-0"></div>
+                        <div>
+                            <h4 className="text-sm font-medium text-[#0D0D0D]">Concourse B</h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="bg-[#FFF3CD] text-[#856404] text-[10px] font-medium px-2 py-0.5 rounded-full">HIGH</span>
                             </div>
-                        )}
+                        </div>
                     </div>
+                    <span className="text-[11px] font-mono-custom text-[#9E9E9E] mt-1">08:15 AM</span>
                 </div>
-            ))}
+                
+                <div className="flex justify-between items-start group cursor-pointer hover:bg-[#F5F5F5] p-1.5 -mx-1.5 rounded-lg transition-colors">
+                    <div className="flex items-start gap-2">
+                        <div className="w-2 h-2 rounded-full bg-[#D97706] mt-1.5 flex-shrink-0"></div>
+                        <div>
+                            <h4 className="text-sm font-medium text-[#0D0D0D]">Platform 4</h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="bg-[#FEF3C7] text-[#D97706] text-[10px] font-medium px-2 py-0.5 rounded-full">MEDIUM</span>
+                            </div>
+                        </div>
+                    </div>
+                    <span className="text-[11px] font-mono-custom text-[#9E9E9E] mt-1">07:50 AM</span>
+                </div>
+            </div>
         </div>
     );
 };

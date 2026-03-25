@@ -1,73 +1,68 @@
-import { Activity, Map as MapIcon } from 'lucide-react';
-
-const getLevelClass = (level) => {
-    switch (level) {
-        case 'CRITICAL': return 'bg-lvlCrit/15 text-lvlCrit border-lvlCrit/30';
-        case 'HIGH': return 'bg-lvlHigh/15 text-lvlHigh border-lvlHigh/30';
-        case 'MEDIUM': return 'bg-lvlMed/15 text-lvlMed border-lvlMed/30';
-        case 'LOW': return 'bg-lvlLow/15 text-lvlLow border-lvlLow/30';
-        default: return 'bg-gray-100 text-textsec border-gray-200';
-    }
-};
+import { useMemo } from 'react';
 
 const ZoneAnalytics = ({ zones }) => {
-    if (!zones || zones.length === 0) {
-        return <div className="h-48 flex items-center justify-center text-textsec">No zone data available</div>;
-    }
+    // Generate bars based on zones or fallback to demo data to match the HTML look
+    const displayZones = useMemo(() => {
+        if (zones && zones.length > 0) {
+            return zones.map(z => ({
+                id: z.zoneId,
+                name: z.zoneName.substring(0, 3).toUpperCase(),
+                percentage: Math.min(100, Math.round((z.count / (z.capacity || 100)) * 100)),
+                isActive: z.densityLabel === 'CRITICAL' || z.densityLabel === 'HIGH'
+            }));
+        }
+        
+        // Fallback demo data mapping perfectly to the provided HTML design
+        return [
+            { id: 'g-a', name: 'G-A', percentage: 70, isStriped: true },
+            { id: 'pl-1', name: 'PL-1', percentage: 85, isSolid: true },
+            { id: 'pl-2', name: 'PL-2', percentage: 65, isActive: true, activeValue: '74%' },
+            { id: 'con', name: 'CON', percentage: 90, isSolid: true },
+            { id: 'mal', name: 'MAL', percentage: 50, isStriped: true },
+            { id: 'sta', name: 'STA', percentage: 60, isStriped: true },
+            { id: 'pan', name: 'PAN', percentage: 45, isStriped: true },
+        ];
+    }, [zones]);
 
     return (
-        <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-                <thead>
-                    <tr className="border-b border-bordercol/80">
-                        <th className="pb-3 text-xs font-medium text-textmuted uppercase tracking-wider font-mono">Zone Name</th>
-                        <th className="pb-3 text-xs font-medium text-textmuted uppercase tracking-wider font-mono">Live Count</th>
-                        <th className="pb-3 text-xs font-medium text-textmuted uppercase tracking-wider font-mono">Status</th>
-                        <th className="pb-3 text-xs font-medium text-textmuted uppercase tracking-wider font-mono text-right">Sensors Active</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-bordercol/30">
-                    {zones.map((zone) => (
-                        <tr key={zone.zoneId} className="group hover:bg-gray-50/50 transition-colors">
-                            <td className="py-4 pr-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-textsec group-hover:bg-white group-hover:shadow-sm transition-all border border-transparent group-hover:border-bordercol">
-                                        <MapIcon size={16} strokeWidth={1.5} />
-                                    </div>
-                                    <span className="text-sm font-medium text-textpri">{zone.zoneName}</span>
+        <div className="flex-1 flex items-end justify-between px-2 pt-8 gap-3">
+            {displayZones.map((z, i) => {
+                if (z.isActive) {
+                    // Active/Selected Bar with Label
+                    return (
+                        <div key={z.id} className="w-full flex flex-col items-center gap-3 group" style={{ height: `${z.percentage}%` }}>
+                            <div className="w-full max-w-[48px] bg-[#3D9E68] rounded-full h-full shadow-sm relative group-hover:opacity-90 transition-opacity">
+                                {/* Tooltip Bubble */}
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#FFFFFF] border border-[#E8E8E8] text-[#1A5C38] text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap z-10">
+                                    {z.activeValue || `${z.percentage}%`}
+                                    <div className="absolute -bottom-[3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#FFFFFF] border-b border-r border-[#E8E8E8] rotate-45"></div>
                                 </div>
-                            </td>
-                            <td className="py-4">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-base font-mono font-medium text-textpri">
-                                        {zone.count?.toLocaleString() || 0}
-                                    </span>
-                                    {zone.densityLabel === 'CRITICAL' && (
-                                        <Activity size={14} className="text-lvlCrit animate-pulse" />
-                                    )}
-                                </div>
-                            </td>
-                            <td className="py-4">
-                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getLevelClass(zone.densityLabel)}`}>
-                                    {zone.densityLabel}
-                                </span>
-                            </td>
-                            <td className="py-4 text-right">
-                                <div className="flex justify-end gap-1.5">
-                                    {zone.sensorSources?.map(sensor => (
-                                        <span key={sensor} className="px-1.5 py-0.5 max-w-[50px] truncate text-[10px] font-mono text-textsec bg-gray-100 rounded border border-gray-200" title={sensor}>
-                                            {sensor}
-                                        </span>
-                                    ))}
-                                    {(!zone.sensorSources || zone.sensorSources.length === 0) && (
-                                         <span className="text-xs text-textmuted">-</span>
-                                    )}
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+                                {/* Selection dot indicator */}
+                                <div className="absolute -top-[14px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full border border-[#1A5C38] bg-white"></div>
+                            </div>
+                            <span className="text-xs font-medium text-[#0D0D0D]">{z.name}</span>
+                        </div>
+                    );
+                }
+
+                if (z.isSolid) {
+                    // Medium Density Bar
+                    return (
+                        <div key={z.id} className="w-full flex flex-col items-center gap-3 group" style={{ height: `${z.percentage}%` }}>
+                            <div className="w-full max-w-[48px] bg-[#1A5C38] rounded-full h-full shadow-sm group-hover:opacity-90 transition-opacity"></div>
+                            <span className="text-xs font-medium text-[#9E9E9E]">{z.name}</span>
+                        </div>
+                    );
+                }
+
+                // Inactive/Striped Bar
+                return (
+                    <div key={z.id} className="w-full flex flex-col items-center gap-3 group" style={{ height: `${z.percentage}%` }}>
+                        <div className="w-full max-w-[48px] bg-striped rounded-full h-full border border-[#E8E8E8] group-hover:opacity-80 transition-opacity bg-white"></div>
+                        <span className="text-xs font-medium text-[#9E9E9E]">{z.name}</span>
+                    </div>
+                );
+            })}
         </div>
     );
 };

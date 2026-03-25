@@ -6,6 +6,7 @@ import useAuthStore from './store/authStore';
 import Layout from './components/layout/Layout';
 
 // Pages
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Commuter from './pages/Commuter';
 import CityMap from './pages/CityMap';
@@ -15,20 +16,11 @@ import VenueSetup from './pages/VenueSetup';
 import Login from './pages/Login';
 
 // Protected Route Wrapper
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { isAuthenticated, user } = useAuthStore();
-  
-  // Actually checking authentication
-  if (!isAuthenticated && process.env.NODE_ENV !== 'development') {
-    // return <Navigate to="/login" />;
-    return children; // For dev/demo speed, bypass strictly locking until auth logic is fully built
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) {
+    return children; // Bypass for now — Firebase auth coming later
   }
-
-  // Optional role check
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" />; // Redirect to their default dashboard
-  }
-
   return children;
 };
 
@@ -36,23 +28,24 @@ function App() {
   const { checkAuth } = useAuthStore();
 
   useEffect(() => {
-    checkAuth(); // Validate token on mount
+    checkAuth();
   }, [checkAuth]);
 
   return (
     <Routes>
+      {/* Public */}
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      
-      {/* Commuter is public but wrapped in its own slim layout optionally. Leaving it in main layout for now */}
-      <Route path="/commuter" element={<Layout><Commuter /></Layout>} />
+      <Route path="/commuter" element={<Commuter />} />
 
-      {/* Protected App Routes */}
-      <Route path="/" element={
+      {/* App Routes with Sidebar Layout */}
+      <Route path="/dashboard" element={
         <ProtectedRoute>
           <Layout />
         </ProtectedRoute>
       }>
         <Route index element={<Dashboard />} />
+        <Route path="commuter" element={<Commuter />} />
         <Route path="map" element={<CityMap />} />
         <Route path="simulation" element={<Simulation />} />
         <Route path="analytics" element={<Analytics />} />

@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { Users } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState('operator@crowdsense.ai'); // Pre-fill for demo
-  const [password, setPassword] = useState('password123'); // Pre-fill for demo
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const { login, isLoading, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
@@ -20,27 +20,31 @@ const Login = () => {
     await login(email, password);
   };
 
+  const handleDemoLogin = async () => {
+    await login('demo@crowdsense.ai', 'demo', true);
+  };
+
   return (
-    <div className="min-h-screen bg-pagebg flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F5F5F5] flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans text-[#0D0D0D]">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
-                <Users size={24} strokeWidth={1.5} />
+            <div className="w-12 h-12 rounded-full bg-[#EBF5EF] flex items-center justify-center text-[#1A5C38] shadow-sm">
+                <Shield size={24} strokeWidth={1.5} />
             </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-textpri">
-          Crowd<span className="text-primary">Sense</span> AI
+        <h2 className="mt-6 text-center text-3xl font-semibold tracking-tight text-[#0D0D0D]">
+          Crowd<span className="text-[#1A5C38]">Sense</span>
         </h2>
-        <p className="mt-2 text-center text-sm text-textsec">
+        <p className="mt-2 text-center text-sm font-light text-[#6B6B6B]">
           Precision crowd intelligence platform
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm border border-bordercol rounded-2xl sm:px-10">
+        <div className="bg-white py-8 px-4 shadow-xl border border-[#E8E8E8] rounded-[24px] sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-textpri">
+              <label className="block text-sm font-medium text-[#0D0D0D]">
                 Email address
               </label>
               <div className="mt-1">
@@ -49,13 +53,14 @@ const Login = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-bordercol rounded-lg shadow-sm placeholder-textmuted focus:outline-none focus:ring-primary focus:border-primary sm:text-sm transition-colors"
+                  className="appearance-none block w-full px-3 py-2.5 border border-[#E8E8E8] rounded-xl shadow-sm placeholder-[#9E9E9E] focus:outline-none focus:ring-1 focus:ring-[#1A5C38] focus:border-[#1A5C38] sm:text-sm transition-colors text-[#0D0D0D]"
+                  placeholder="name@company.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-textpri">
+              <label className="block text-sm font-medium text-[#0D0D0D]">
                 Password
               </label>
               <div className="mt-1">
@@ -64,7 +69,8 @@ const Login = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-bordercol rounded-lg shadow-sm placeholder-textmuted focus:outline-none focus:ring-primary focus:border-primary sm:text-sm transition-colors"
+                  className="appearance-none block w-full px-3 py-2.5 border border-[#E8E8E8] rounded-xl shadow-sm placeholder-[#9E9E9E] focus:outline-none focus:ring-1 focus:ring-[#1A5C38] focus:border-[#1A5C38] sm:text-sm transition-colors text-[#0D0D0D]"
+                  placeholder="••••••••"
                 />
               </div>
             </div>
@@ -75,41 +81,39 @@ const Login = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-primary focus:ring-primary border-bordercol rounded cursor-pointer"
+                  className="h-4 w-4 text-[#1A5C38] focus:ring-[#1A5C38] border-[#E8E8E8] rounded cursor-pointer"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-textsec cursor-pointer">
+                <label htmlFor="remember-me" className="ml-2 block text-sm font-normal text-[#6B6B6B] cursor-pointer">
                   Remember me
                 </label>
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary hover:text-primarylight">
+                <a href="#" className="font-medium text-[#1A5C38] hover:text-[#2D8B55] transition-colors">
                   Forgot your password?
                 </a>
               </div>
             </div>
 
-            <div>
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primarylight focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-70"
+                className="w-full flex justify-center py-3 px-4 border-none shadow-md rounded-full text-sm font-medium text-white bg-gradient-to-r from-[#1A5C38] to-[#2D8B55] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1A5C38] transition-all disabled:opacity-70"
               >
-                {isLoading ? 'Authenticating...' : 'Sign in'}
+                {isLoading ? 'Authenticating...' : 'Sign in to Dashboard'}
               </button>
             </div>
           </form>
           
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-bordercol" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-textmuted">For Demo Evaluation</span>
-              </div>
-            </div>
-             <p className="text-xs text-center text-textsec mt-4">Demo account: operator@crowdsense.ai / password123</p>
+          <div className="mt-8 pt-6 border-t border-[#E8E8E8]">
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              className="w-full flex justify-center py-3 px-4 rounded-full border border-[#E8E8E8] shadow-sm text-sm font-medium text-[#0D0D0D] bg-white hover:bg-[#F5F5F5] transition-colors gap-2 items-center"
+            >
+              Continue with Demo Session
+            </button>
           </div>
         </div>
       </div>

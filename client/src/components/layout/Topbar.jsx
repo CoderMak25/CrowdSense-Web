@@ -1,69 +1,57 @@
-import { Search, MessageSquare, Bell } from 'lucide-react';
+import { Search, Command, Mail, Bell } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import useAlertStore from '../../store/alertStore';
-import { useWebSocket } from '../../hooks/useWebSocket';
-import useVenueStore from '../../store/venueStore';
 
 const Topbar = () => {
-    const { user } = useAuthStore();
-    const unreadCount = useAlertStore(state => state.unreadCount);
-    // Bind WebSocket for connected venue
-    const selectedVenue = useVenueStore(state => state.selectedVenue);
-    const { status } = useWebSocket(selectedVenue?.venueId);
+  const { user } = useAuthStore();
+  const unreadAlerts = useAlertStore(state => state.unreadCount);
 
-    const getInitials = (name) => {
-        if (!name) return 'OP';
-        return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    };
+  return (
+    <header className="h-[64px] bg-transparent flex items-center justify-between px-6 md:px-8 flex-shrink-0 z-10 relative">
+      {/* Search */}
+      <div className="flex items-center bg-white shadow-sm border border-transparent rounded-full h-11 w-full max-w-[320px] px-4 focus-within:border-[#1A5C38] focus-within:ring-1 focus-within:ring-[#1A5C38] transition-all">
+          <Search className="w-4 h-4 text-[#9E9E9E]" strokeWidth={2} />
+          <input 
+              type="text" 
+              placeholder="Search task" 
+              className="bg-transparent border-none outline-none text-sm w-full ml-3 placeholder:text-[#9E9E9E] text-[#0D0D0D] p-0 focus:ring-0" 
+          />
+          <div className="bg-[#F5F5F5] text-[#6B6B6B] text-[11px] font-medium px-2 py-1 rounded-md flex items-center gap-1 flex-shrink-0 border border-[#E8E8E8]">
+              <Command className="w-3 h-3" /> F
+          </div>
+      </div>
 
-    return (
-        <header className="h-[64px] bg-white border-b border-bordercol flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 w-full">
-            <div className="flex-1 max-w-md relative flex items-center">
-                <Search className="text-textmuted absolute left-4 w-4 h-4" strokeWidth={1.5} />
-                <input 
-                    type="text" 
-                    placeholder="Search venue..." 
-                    className="w-full bg-pagebg text-sm rounded-full pl-10 pr-12 py-2 outline-none focus:ring-2 focus:ring-primary/20 border border-transparent focus:border-primary/30 transition-all placeholder:text-textmuted"
-                />
-                <div className="absolute right-3 px-1.5 py-0.5 rounded border border-bordercol text-[10px] text-textmuted font-mono bg-white">
-                    ⌘F
-                </div>
-            </div>
-
-            <div className="flex items-center gap-5 ml-4">
-                
-                {/* WS Status Indicator */}
-                {status && (
-                    <div className="flex items-center gap-1.5 hidden md:flex" title={`Connection: ${status}`}>
-                        <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-lvlLow' : (status === 'connecting' ? 'bg-lvlMed' : 'bg-textmuted')}`}></div>
-                        <span className="text-[10px] font-mono text-textmuted capitalize">{status}</span>
-                    </div>
-                )}
-
-                <button className="text-textsec hover:text-textpri transition-colors relative">
-                    <MessageSquare strokeWidth={1.5} className="w-[22px] h-[22px]" />
-                </button>
-                <button className="text-textsec hover:text-textpri transition-colors relative">
-                    <Bell strokeWidth={1.5} className="w-[22px] h-[22px]" />
-                    {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 w-2 h-2 bg-lvlHigh rounded-full border-2 border-white"></span>
-                    )}
-                </button>
-                
-                <div className="h-6 w-px bg-bordercol hidden md:block"></div>
-                
-                <div className="flex items-center gap-3 cursor-pointer">
-                    <div className="w-9 h-9 rounded-full bg-accentbg text-primary flex items-center justify-center text-sm font-semibold tracking-tight border border-primary/10">
-                        {getInitials(user?.name)}
-                    </div>
-                    <div className="hidden md:block">
-                        <p className="text-sm font-medium text-textpri leading-tight">{user?.name || 'Demo User'}</p>
-                        <p className="text-[10px] text-textsec mt-0.5">{user?.email || 'admin@crowdsense.ai'}</p>
-                    </div>
-                </div>
-            </div>
-        </header>
-    );
+      {/* Right Actions */}
+      <div className="flex items-center gap-3">
+          <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#0D0D0D] shadow-sm hover:shadow-md hover:-translate-y-px transition-all">
+              <Mail className="w-[18px] h-[18px]" strokeWidth={1.5} />
+          </button>
+          <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#0D0D0D] shadow-sm hover:shadow-md hover:-translate-y-px transition-all relative">
+              <Bell className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              {unreadAlerts > 0 && (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#DC2626] rounded-full border border-white"></span>
+              )}
+          </button>
+          
+          <div className="w-px h-6 mx-1"></div>
+          
+          <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="w-10 h-10 rounded-full bg-[#E8B5A1] overflow-hidden flex items-center justify-center shadow-sm">
+                 {/* Using avatar style from image or fallback */}
+                 <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user?.name || 'Totok'}&backgroundColor=e8b5a1`} alt="avatar" className="w-full h-full object-cover" />
+              </div>
+              <div className="hidden lg:flex flex-col">
+                  <span className="text-sm font-medium text-[#0D0D0D] group-hover:text-[#1A5C38] transition-colors leading-none mb-1">
+                      {user?.name || 'Totok Michael'}
+                  </span>
+                  <span className="text-xs font-light text-[#6B6B6B] leading-none">
+                      {user?.email || 'tmichael20@gmail.com'}
+                  </span>
+              </div>
+          </div>
+      </div>
+    </header>
+  );
 };
 
 export default Topbar;

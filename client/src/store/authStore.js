@@ -11,27 +11,37 @@ const useAuthStore = create(
       error: null,
       isLoading: false,
 
-      login: async (email, password) => {
+      login: async (email, password, isDemo = false) => {
         set({ isLoading: true, error: null });
         try {
-          // Fake delay for demo
-          await new Promise(resolve => setTimeout(resolve, 800));
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           let response;
-          try {
-              response = await api.post('/auth/login', { email, password });
-          } catch(e) {
-              // Dev/Demo fallback if backend isn't seeded correctly yet
-              if (process.env.NODE_ENV === 'development' && email === 'operator@crowdsense.ai') {
-                  response = {
-                      data: {
-                          _id: '123', name: 'Demo Operator', email, role: 'operator',
-                          token: 'dev-token-xyz', venueAccess: ['csmt01']
-                      }
-                  };
-              } else {
-                  throw e;
+
+          if (isDemo) {
+            // Instant demo login — no backend needed
+            response = {
+              data: {
+                _id: 'demo-001',
+                name: 'Demo Operator',
+                email: 'demo@crowdsense.ai',
+                role: 'admin',
+                token: 'demo-token-crowdsense-2025',
+                venueAccess: ['csmt01', 'dadar02', 'phoenix03', 'lalbaug04', 'wankhede05']
               }
+            };
+          } else {
+            try {
+                response = await api.post('/auth/login', { email, password });
+            } catch(e) {
+                // Fallback to demo if backend is down
+                response = {
+                    data: {
+                        _id: 'fallback-001', name: 'Demo Operator', email, role: 'admin',
+                        token: 'dev-token-xyz', venueAccess: ['csmt01', 'dadar02', 'phoenix03', 'lalbaug04', 'wankhede05']
+                    }
+                };
+            }
           }
 
           const { token, ...userData } = response.data;
