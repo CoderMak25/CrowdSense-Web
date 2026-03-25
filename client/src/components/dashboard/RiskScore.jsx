@@ -22,14 +22,13 @@ const RiskScore = ({ riskScore = 72 }) => {
                     />
                     {/* Colored Fill */}
                     <path 
-                        className="text-[#1A5C38]" 
+                        className="text-[#1A5C38] transition-all duration-1000 ease-out" 
                         strokeDasharray={`${riskScore}, 100`} 
                         strokeWidth="4.5" 
                         strokeLinecap="round" 
                         stroke="currentColor" 
                         fill="none" 
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                        className="transition-all duration-1000 ease-out"
                     />
                 </svg>
                 {/* Center Text */}

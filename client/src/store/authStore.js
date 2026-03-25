@@ -67,21 +67,26 @@ const useAuthStore = create(
       },
 
       checkAuth: async () => {
-        const { token } = get();
+        const { token, user } = get();
         if (!token) return false;
 
+        // Skip server verification for demo/dev tokens — Firebase auth coming later
+        if (token.startsWith('demo-') || token.startsWith('dev-')) {
+          if (user) {
+            set({ isAuthenticated: true });
+            return true;
+          }
+          get().logout();
+          return false;
+        }
+
         try {
-            // Verify token works
             const res = await api.get('/auth/me');
             set({ user: res.data, isAuthenticated: true });
             return true;
         } catch (error) {
-            // If API fails or is down, keep state in dev mode, clear otherwise 
-            if (process.env.NODE_ENV !== 'development') {
-                get().logout();
-                return false;
-            }
-            return true;
+            get().logout();
+            return false;
         }
       }
     }),

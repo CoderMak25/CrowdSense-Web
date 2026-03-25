@@ -44,9 +44,9 @@ export const useCrowdData = (venueId) => {
   }, [data, setInitialData]);
 
   return {
-    // Return zustand live state
-    zones: getAllReadings(),
-    riskScore,
+    // Return zustand live state only if a venue is actively requested
+    zones: venueId ? getAllReadings() : [],
+    riskScore: venueId ? riskScore : 0,
     // Return query loading states
     isLoading,
     isRefetching,
