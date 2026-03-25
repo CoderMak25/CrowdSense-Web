@@ -18,24 +18,24 @@ router.post('/cctv', ingestLimiter, async (req, res, next) => {
         const { venueId, zoneId, count, frameId, confidence } = req.body;
 
         await SensorLog.create({
-             venueId,
-             sensorType: 'CCTV',
-             rawValue: { frameId, count },
-             processedValue: count,
-             confidence: confidence || 0.90
+            venueId,
+            sensorType: 'CCTV',
+            rawValue: { frameId, count },
+            processedValue: count,
+            confidence: confidence || 0.90
         });
 
         await CrowdReading.create({
-             venueId,
-             zoneId,
-             count: count,
-             densityLabel: 'UNKNOWN', // Fusion handles this
-             sensorSource: 'CCTV',
-             confidence: confidence || 0.90
+            venueId,
+            zoneId,
+            count: count,
+            densityLabel: 'UNKNOWN', // Fusion handles this
+            sensorSource: 'CCTV',
+            confidence: confidence || 0.90
         });
 
         res.status(201).json({ success: true });
-        
+
         // Trigger fusion async
         runFusionForZone(venueId, zoneId);
 
@@ -53,20 +53,20 @@ router.post('/ble', ingestLimiter, async (req, res, next) => {
         const estimatedCount = deduplicate(devices, 'default');
 
         await SensorLog.create({
-             venueId,
-             sensorType: 'BLE',
-             rawValue: devices,
-             processedValue: estimatedCount,
-             confidence: confidence || 0.65
+            venueId,
+            sensorType: 'BLE',
+            rawValue: devices,
+            processedValue: estimatedCount,
+            confidence: confidence || 0.65
         });
 
         await CrowdReading.create({
-             venueId,
-             zoneId,
-             count: estimatedCount,
-             densityLabel: 'UNKNOWN', 
-             sensorSource: 'BLE',
-             confidence: confidence || 0.65
+            venueId,
+            zoneId,
+            count: estimatedCount,
+            densityLabel: 'UNKNOWN',
+            sensorSource: 'BLE',
+            confidence: confidence || 0.65
         });
 
         res.status(201).json({ success: true, estimatedCount });
@@ -83,20 +83,20 @@ router.post('/motion', ingestLimiter, async (req, res, next) => {
         const { venueId, zoneId, label, confidence } = req.body;
 
         await SensorLog.create({
-             venueId,
-             sensorType: 'MOTION',
-             rawValue: label,
-             processedValue: 0,
-             confidence: confidence || 0.80
+            venueId,
+            sensorType: 'MOTION',
+            rawValue: label,
+            processedValue: 0,
+            confidence: confidence || 0.80
         });
 
         await CrowdReading.create({
-             venueId,
-             zoneId,
-             count: 0, // Motion doesn't give counts
-             densityLabel: label, // e.g., CRUSH, FREE
-             sensorSource: 'MOTION',
-             confidence: confidence || 0.80
+            venueId,
+            zoneId,
+            count: 0, // Motion doesn't give counts
+            densityLabel: label, // e.g., CRUSH, FREE
+            sensorSource: 'MOTION',
+            confidence: confidence || 0.80
         });
 
         res.status(201).json({ success: true });
@@ -116,9 +116,9 @@ router.post('/sms', express.urlencoded({ extended: true }), smsLimiter, async (r
         const parsed = parse(body);
 
         if (!parsed) {
-             const twiml = new require('twilio').twiml.MessagingResponse();
-             twiml.message('Format not recognized. Please reply with: "STATION_CODE CROWD|SAFE|WATER|HELP".');
-             return res.type('text/xml').send(twiml.toString());
+            const twiml = new require('twilio').twiml.MessagingResponse();
+            twiml.message('Format not recognized. Please reply with: "STATION_CODE CROWD|SAFE|WATER|HELP".');
+            return res.type('text/xml').send(twiml.toString());
         }
 
         // For demo, assuming CSMT = zone1, CROWD = 100 people etc.
@@ -126,20 +126,20 @@ router.post('/sms', express.urlencoded({ extended: true }), smsLimiter, async (r
         let estimatedCount = parsed.reportType === 'CROWD' ? 100 : 20;
 
         await SensorLog.create({
-             venueId: parsed.stationCode,
-             sensorType: 'SMS',
-             rawValue: body,
-             processedValue: estimatedCount,
-             confidence: parsed.confidence
+            venueId: parsed.stationCode,
+            sensorType: 'SMS',
+            rawValue: body,
+            processedValue: estimatedCount,
+            confidence: parsed.confidence
         });
 
         await CrowdReading.create({
-             venueId: parsed.stationCode,
-             zoneId: 'zone1', // simplified for demo
-             count: estimatedCount,
-             densityLabel: 'UNKNOWN', 
-             sensorSource: 'SMS',
-             confidence: parsed.confidence
+            venueId: parsed.stationCode,
+            zoneId: 'zone1', // simplified for demo
+            count: estimatedCount,
+            densityLabel: 'UNKNOWN',
+            sensorSource: 'SMS',
+            confidence: parsed.confidence
         });
 
         runFusionForZone(parsed.stationCode, 'zone1');
@@ -152,6 +152,66 @@ router.post('/sms', express.urlencoded({ extended: true }), smsLimiter, async (r
         console.error('SMS Webhook Error', error);
         res.status(500).end();
     }
+});
+
+// @desc    Ingest GPS tracking cluster data
+// @route   POST /api/ingest/gps
+router.post('/gps', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'GPS', rawValue: data, processedValue: count, confidence: confidence || 0.85 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'GPS', confidence: confidence || 0.85 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest Wi-Fi Probe data
+// @route   POST /api/ingest/wifi
+router.post('/wifi', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'WIFI', rawValue: data, processedValue: count, confidence: confidence || 0.70 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'WIFI', confidence: confidence || 0.70 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest Network Data (Turnstiles, ticketing)
+// @route   POST /api/ingest/network
+router.post('/network', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'NETWORK', rawValue: data, processedValue: count, confidence: confidence || 0.95 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'NETWORK', confidence: confidence || 0.95 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest Cellular Tower loads
+// @route   POST /api/ingest/cellular
+router.post('/cellular', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, count, data, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'CELLULAR', rawValue: data, processedValue: count, confidence: confidence || 0.80 });
+        await CrowdReading.create({ venueId, zoneId, count: count || 0, densityLabel: 'UNKNOWN', sensorSource: 'CELLULAR', confidence: confidence || 0.80 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
+});
+
+// @desc    Ingest User App Events
+// @route   POST /api/ingest/app-event
+router.post('/app-event', ingestLimiter, async (req, res, next) => {
+    try {
+        const { venueId, zoneId, metadata, confidence } = req.body;
+        await SensorLog.create({ venueId, sensorType: 'APP_EVENT', rawValue: metadata, processedValue: 1, confidence: confidence || 0.90 });
+        await CrowdReading.create({ venueId, zoneId, count: 1, densityLabel: 'UNKNOWN', sensorSource: 'APP_EVENT', confidence: confidence || 0.90 });
+        res.status(201).json({ success: true });
+        runFusionForZone(venueId, zoneId);
+    } catch (error) { next(error); }
 });
 
 module.exports = router;

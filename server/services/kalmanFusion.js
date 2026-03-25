@@ -7,6 +7,8 @@ const CrowdReading = require('../models/CrowdReading');
 const SensorLog = require('../models/SensorLog');
 const { SENSOR_WEIGHTS, DENSITY_THRESHOLDS } = require('../config/constants');
 const { redisClient } = require('../config/redis');
+const RiskScoreEngine = require('./riskScore');
+const AlertEngine = require('./alertEngine');
 
 /**
  * Executes a fusion cycle for a specific zone in a venue
@@ -93,7 +95,22 @@ const runFusionForZone = async (venueId, zoneId) => {
         const fusionConfidence = weightConfidenceSum > 0 ? 
             Math.min((weightConfidenceSum / latestBySource.size), 1.0) : 0.5;
 
-        // 6. Save FUSION reading
+        // --- M2-04 Risk Engine Hook ---
+        // Fetch last 50 densities to feed the python isolation forest 
+        const historyDocs = await CrowdReading.find({ venueId, zoneId, sensorSource: 'FUSION' })
+            .sort({ timestamp: -1 }).limit(50);
+            
+        const recentDensities = historyDocs.map(d => d.count);
+        const prevDoc = historyDocs[0];
+        
+        const riskBreakdown = await RiskScoreEngine.compute(
+            venueId, zoneId, fusedCount, breakdown.motion || 'FREE', 
+            prevDoc ? prevDoc.count : 0, 
+            prevDoc ? prevDoc.timestamp : null, 
+            recentDensities
+        );
+
+        // 6. Save FUSION reading with M2-04 Risk data
         const fusionReading = new CrowdReading({
             venueId,
             zoneId,
@@ -101,10 +118,37 @@ const runFusionForZone = async (venueId, zoneId) => {
             densityLabel,
             sensorSource: 'FUSION',
             confidence: parseFloat(fusionConfidence.toFixed(2)),
-            sensorBreakdown: breakdown
+            sensorBreakdown: breakdown,
+            ...riskBreakdown
         });
 
         await fusionReading.save();
+
+        // 7. Publish to Redis (WebSocket clients consume this via PubSub)
+        const payload = {
+            event: "CROWD_UPDATE",
+            venue_id: venueId, zone_id: zoneId, density: fusedCount,
+            crowd_level: riskBreakdown.crowdLevel, risk_score: riskBreakdown.riskScore,
+            triggered_by: riskBreakdown.triggeredBy, is_anomaly: riskBreakdown.isAnomaly,
+            timestamp: fusionReading.timestamp
+        };
+        if(redisClient) {
+            redisClient.publish(`crowdsense:live:${venueId}`, JSON.stringify(payload));
+        }
+
+        // --- M2-05 Alert Engine Trigger ---
+        const alertCheck = await AlertEngine.shouldAlert(
+            venueId, zoneId, riskBreakdown.riskScore, breakdown.motion || 'FREE'
+        );
+
+        if (alertCheck.shouldFire) {
+             const result = await AlertEngine.fireAlert(
+                venueId, zoneId, riskBreakdown.riskScore, 
+                riskBreakdown.crowdLevel, riskBreakdown.triggeredBy, 
+                alertCheck.severity
+             );
+             console.log(`[Alert] ${alertCheck.severity} fired for ${venueId}/${zoneId} -> WhatsApp:${result.whatsappSentCount} SMS:${result.smsSentCount}`);
+        }
         
         return fusionReading;
 

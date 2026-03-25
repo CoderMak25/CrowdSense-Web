@@ -1,0 +1,36 @@
+const http = require('http');
+
+const data = JSON.stringify({
+  phone: "+919867171270",
+  severity: "CRITICAL"
+});
+
+const options = {
+  hostname: 'localhost',
+  port: 5000,
+  path: '/api/v1/alerts/cst-mumbai/test',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Content-Length': data.length
+  }
+};
+
+const req = http.request(options, (res) => {
+  let body = '';
+  console.log(`STATUS: ${res.statusCode}`);
+  res.setEncoding('utf8');
+  res.on('data', (chunk) => {
+    body += chunk;
+  });
+  res.on('end', () => {
+    console.log('BODY:', body);
+  });
+});
+
+req.on('error', (e) => {
+  console.error(`problem with request: ${e.message}`);
+});
+
+req.write(data);
+req.end();

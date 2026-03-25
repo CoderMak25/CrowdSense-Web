@@ -26,6 +26,14 @@ const crowdReadingSchema = new mongoose.Schema({
     sms: Number,
     appEvents: Number
   },
+  riskScore: { type: Number, default: 0.0 },
+  crowdLevel: { type: String, enum: ['LOW', 'MODERATE', 'HIGH', 'CRITICAL'], default: 'LOW' },
+  triggeredBy: [String],
+  isAnomaly: { type: Boolean, default: false },
+  densityScore: { type: Number, default: 0.0 },
+  motionScore: { type: Number, default: 0.0 },
+  surgeRateScore: { type: Number, default: 0.0 },
+  anomalyScore: { type: Number, default: 0.0 },
   timestamp: { type: Date, default: Date.now, index: true }
 });
 

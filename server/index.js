@@ -21,6 +21,7 @@ const ingestRoutes = require('./routes/ingest');
 const alertsRoutes = require('./routes/alerts');
 const analyticsRoutes = require('./routes/analytics');
 const demoRoutes = require('./routes/demo');
+const riskRoutes = require('./routes/risk');
 
 const app = express();
 
@@ -43,9 +44,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/venues', venueRoutes);
 app.use('/api/density', densityRoutes);
 app.use('/api/ingest', ingestRoutes);
-app.use('/api/alerts', alertsRoutes);
+app.use('/api/v1/alerts', alertsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/demo', demoRoutes);
+app.use('/api/v1/risk', riskRoutes);
+
 
 // Healthcheck
 app.get('/health', (req, res) => res.send('OK'));

@@ -1,101 +1,77 @@
-/**
- * Risk Scoring Service
- * Calculates an overall venue risk score (0-100) based on zone data and anomalies
- */
+const { spawn } = require('child_process');
+const path = require('path');
 
-const CrowdReading = require('../models/CrowdReading');
-const { SENSOR_WEIGHTS } = require('../config/constants');
-const { detectAnomaly } = require('./anomalyDetector');
+class RiskScoreEngine {
+    static async compute(venueId, zoneId, fusedDensity, motionLabel, previousDensity, previousTimestamp, recentDensities) {
+        // Density Score (0-100)
+        const densityScore = Math.min(fusedDensity * 100, 100) || 0;
 
-/**
- * Calculates risk score for a venue based on current zone fusion data
- * @param {String} venueId 
- * @param {Array} currentZoneReadings - Array of recent FUSION readings per zone
- */
-const calculateRiskScore = async (venueId, currentZoneReadings) => {
-    try {
-        if (!currentZoneReadings || currentZoneReadings.length === 0) {
-            return { score: 0, factors: [] };
-        }
+        // Motion Score
+        let motionScore = 0;
+        if (motionLabel === 'CRUSH') motionScore = 100;
+        else if (motionLabel === 'STILL') motionScore = 70;
+        else if (motionLabel === 'SHUFFLE') motionScore = 40;
 
-        let baseScore = 0;
-        let totalZones = currentZoneReadings.length;
-        let crushBonus = 0;
-        const factors = [];
-
-        // 1. Calculate Base Density Score
-        let totalDensityValue = 0;
-        
-        for (const reading of currentZoneReadings) {
-            // Normalize count to a 0-100 scale (Assuming 150 is max capacity for calculation)
-            // In a real app, use the actual zone.capacity
-            let zoneDensity = Math.min((reading.count / 150) * 100, 100); 
-            totalDensityValue += zoneDensity;
-
-            if (reading.sensorBreakdown && reading.sensorBreakdown.motion === 'CRUSH') {
-                crushBonus = 30;
-                factors.push('CRUSH motion detected in ' + reading.zoneId);
-            }
-        }
-        
-        baseScore = totalDensityValue / totalZones;
-
-        // 2. Calculate Surge Rate (Current vs 5 mins ago)
-        let surgeBonus = 0;
-        const fiveMinsAgo = new Date(Date.now() - 5 * 60000);
-        
-        // Aggregate count 5 mins ago
-        let pastTotalCount = 0;
-        let currentTotalCount = currentZoneReadings.reduce((sum, r) => sum + r.count, 0);
-
-        for (const reading of currentZoneReadings) {
-            const pastReading = await CrowdReading.findOne({
-                venueId,
-                zoneId: reading.zoneId,
-                sensorSource: 'FUSION',
-                timestamp: { $lte: fiveMinsAgo }
-            }).sort({ timestamp: -1 });
-
-            if (pastReading) {
-                 pastTotalCount += pastReading.count;
-            } else {
-                 // If no reading 5 mins ago, assume current is baseline
-                 pastTotalCount += reading.count;
+        // Surge Rate 
+        let surgeRate = 0;
+        if (previousTimestamp && previousDensity !== undefined) {
+            const timeDiffMins = (Date.now() - new Date(previousTimestamp).getTime()) / 60000;
+            if (timeDiffMins > 0) {
+                const rate = (fusedDensity - previousDensity) / timeDiffMins;
+                surgeRate = Math.max(0, Math.min(rate * 100, 100)); // Clamp 0-100
             }
         }
 
-        if (pastTotalCount > 0) {
-            const surgeRate = (currentTotalCount - pastTotalCount) / pastTotalCount;
-            if (surgeRate > 0) {
-                // E.g. 50% surge -> 0.5 * 20 = +10 score
-                surgeBonus = Math.min(surgeRate * 20, 20); 
-                if (surgeBonus > 5) factors.push(`Rapid crowd surge (${(surgeRate*100).toFixed(0)}%)`);
-            }
-        }
+        // Anomaly Score (runs sklearn via python)
+        const anomalyScore = await this.runIsolationForest(recentDensities, fusedDensity);
 
-        // 3. Anomaly Bonus
-        let anomalyBonus = 0;
-        const anomaly = await detectAnomaly(venueId, currentTotalCount);
-        if (anomaly && anomaly.isAnomaly) {
-            anomalyBonus = 20;
-            factors.push(`Statistical anomaly detected (z=${anomaly.zScore.toFixed(2)})`);
-        }
-
-        // 4. Final Calculation
-        let finalScore = baseScore + surgeBonus + crushBonus + anomalyBonus;
+        // Core Formula
+        let riskScore = (densityScore * 0.40) + (motionScore * 0.25) + (surgeRate * 0.20) + (anomalyScore * 0.15);
         
-        // Clamp to 0-100
-        finalScore = Math.max(0, Math.min(Math.round(finalScore), 100));
+        // Rules
+        if (motionLabel === 'CRUSH') riskScore = Math.max(riskScore, 90);
+        riskScore = Math.max(0, Math.min(riskScore, 100)); // Clamp
+
+        let crowdLevel = 'LOW';
+        if (riskScore >= 75) crowdLevel = 'CRITICAL';
+        else if (riskScore >= 50) crowdLevel = 'HIGH';
+        else if (riskScore >= 25) crowdLevel = 'MODERATE';
+
+        const triggeredBy = [];
+        if (motionLabel === 'CRUSH') triggeredBy.push('CRUSH_MOTION');
+        if (densityScore >= 75) triggeredBy.push('HIGH_DENSITY');
+        if (anomalyScore >= 70) triggeredBy.push('ANOMALY');
 
         return {
-            score: finalScore,
-            factors
+            riskScore,
+            crowdLevel,
+            densityScore,
+            motionScore,
+            surgeRateScore: surgeRate,
+            anomalyScore,
+            isAnomaly: anomalyScore >= 70, // dynamic classification
+            triggeredBy
         };
-
-    } catch (error) {
-        console.error("Risk Score Calc Error:", error);
-        return { score: 0, factors: [] };
     }
-};
 
-module.exports = { calculateRiskScore };
+    static async runIsolationForest(recentDensities, currentDensity) {
+        if (!recentDensities || recentDensities.length < 10) return 0;
+        return new Promise((resolve) => {
+            const pyProg = spawn('python', [path.join(__dirname, '../scripts/iforest.py')]);
+            const input = JSON.stringify({ history: recentDensities, current: currentDensity });
+            let dataStr = '';
+            
+            pyProg.stdout.on('data', (data) => dataStr += data.toString());
+            pyProg.stdin.write(input);
+            pyProg.stdin.end();
+            pyProg.on('close', () => {
+                try {
+                    const result = JSON.parse(dataStr);
+                    resolve(result.anomaly_score || 0);
+                } catch(e) { resolve(0); }
+            });
+            pyProg.on('error', () => resolve(0)); 
+        });
+    }
+}
+module.exports = RiskScoreEngine;

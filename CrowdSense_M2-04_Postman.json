@@ -1,0 +1,58 @@
+{
+	"info": {
+		"name": "CrowdSense M2-04 Risk Engine",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "TEST 1 - Normal crowd",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"url": {"raw": "http://localhost:5000/api/ingest/cctv", "host": ["localhost"], "port": "5000", "path": ["api", "ingest", "cctv"]},
+				"body": {"mode": "raw", "raw": "{\"venueId\": \"cst-mumbai\", \"zoneId\": \"zone-a\", \"count\": 50, \"frameId\": \"r001\", \"confidence\": 0.90}"}
+			}
+		},
+		{
+			"name": "TEST 2 - Dense crowd (CCTV)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"url": {"raw": "http://localhost:5000/api/ingest/cctv", "host": ["localhost"], "port": "5000", "path": ["api", "ingest", "cctv"]},
+				"body": {"mode": "raw", "raw": "{\"venueId\": \"cst-mumbai\", \"zoneId\": \"zone-a\", \"count\": 280, \"confidence\": 0.95}"}
+			}
+		},
+		{
+			"name": "TEST 3 - CRUSH motion",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"url": {"raw": "http://localhost:5000/api/ingest/motion", "host": ["localhost"], "port": "5000", "path": ["api", "ingest", "motion"]},
+				"body": {"mode": "raw", "raw": "{\"venueId\": \"cst-mumbai\", \"zoneId\": \"zone-a\", \"label\": \"CRUSH\", \"confidence\": 0.99}"}
+			}
+		},
+		{
+			"name": "TEST 4 - Manual risk test",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"url": {"raw": "http://localhost:5000/api/v1/risk/cst-mumbai/test", "host": ["localhost"], "port": "5000", "path": ["api", "v1", "risk", "cst-mumbai", "test"]},
+				"body": {"mode": "raw", "raw": "{\"zone_id\": \"zone-a\", \"density\": 0.92, \"motion_label\": \"CRUSH\", \"inject_anomaly\": true}"}
+			}
+		},
+		{
+			"name": "TEST 5 - GET risk score",
+			"request": {
+				"method": "GET",
+				"url": {"raw": "http://localhost:5000/api/v1/risk/cst-mumbai", "host": ["localhost"], "port": "5000", "path": ["api", "v1", "risk", "cst-mumbai"]}
+			}
+		},
+		{
+			"name": "TEST 6 - GET anomalies",
+			"request": {
+				"method": "GET",
+				"url": {"raw": "http://localhost:5000/api/v1/risk/cst-mumbai/anomalies", "host": ["localhost"], "port": "5000", "path": ["api", "v1", "risk", "cst-mumbai", "anomalies"]}
+			}
+		}
+	]
+}
