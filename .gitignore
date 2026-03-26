@@ -16,3 +16,10 @@ dist/
 dist-ssr/
 *.local
 
+#ml
+.venv/
+__pycache__/
+*.pyc
+crowdsense.db
+*.pt
+
