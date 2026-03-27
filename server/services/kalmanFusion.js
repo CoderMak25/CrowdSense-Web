@@ -9,6 +9,7 @@ const { SENSOR_WEIGHTS, DENSITY_THRESHOLDS } = require('../config/constants');
 const { redisClient } = require('../config/redis');
 const RiskScoreEngine = require('./riskScore');
 const AlertEngine = require('./alertEngine');
+const wsManager = require('./wsManager');
 
 /**
  * Executes a fusion cycle for a specific zone in a venue
@@ -124,17 +125,22 @@ const runFusionForZone = async (venueId, zoneId) => {
 
         await fusionReading.save();
 
-        // 7. Publish to Redis (WebSocket clients consume this via PubSub)
-        const payload = {
+        // 7. M2-06 WebSocket Live Update Broadcast
+        const activeSensors = Object.keys(breakdown).filter(k => breakdown[k] > 0 || k === 'motion');
+
+        wsManager.broadcastToVenue(venueId, {
             event: "CROWD_UPDATE",
-            venue_id: venueId, zone_id: zoneId, density: fusedCount,
-            crowd_level: riskBreakdown.crowdLevel, risk_score: riskBreakdown.riskScore,
-            triggered_by: riskBreakdown.triggeredBy, is_anomaly: riskBreakdown.isAnomaly,
-            timestamp: fusionReading.timestamp
-        };
-        if(redisClient) {
-            redisClient.publish(`crowdsense:live:${venueId}`, JSON.stringify(payload));
-        }
+            venueId,
+            zoneId,
+            density: fusedCount,
+            riskScore: riskBreakdown.riskScore,
+            crowdLevel: riskBreakdown.crowdLevel,
+            triggeredBy: riskBreakdown.triggeredBy,
+            isAnomaly: riskBreakdown.isAnomaly,
+            motionLabel: breakdown.motion || 'FREE',
+            sensorSources: activeSensors,
+            timestamp: new Date().toISOString()
+        });
 
         // --- M2-05 Alert Engine Trigger ---
         const alertCheck = await AlertEngine.shouldAlert(
@@ -147,8 +153,23 @@ const runFusionForZone = async (venueId, zoneId) => {
                 riskBreakdown.crowdLevel, riskBreakdown.triggeredBy, 
                 alertCheck.severity
              );
+             
+             // Broadcast ALERT to WebSocket
+             wsManager.broadcastToVenue(venueId, {
+                 event: "ALERT",
+                 venueId,
+                 zoneId,
+                 severity: alertCheck.severity,
+                 riskScore: riskBreakdown.riskScore,
+                 crowdLevel: riskBreakdown.crowdLevel,
+                 triggeredBy: riskBreakdown.triggeredBy,
+                 message: `🚨 CROWDSENSE ALERT: ${alertCheck.severity} in ${zoneId}`, // Using default format
+                 timestamp: new Date().toISOString()
+             });
+
              console.log(`[Alert] ${alertCheck.severity} fired for ${venueId}/${zoneId} -> WhatsApp:${result.whatsappSentCount} SMS:${result.smsSentCount}`);
         }
+
         
         return fusionReading;
 

@@ -5,7 +5,7 @@ const cors = require('cors');
 const cron = require('node-cron');
 
 const connectDB = require('./config/db');
-const { initWebSocket, broadcastToVenue } = require('./websocket/wsManager');
+const wsManager = require('./services/wsManager');
 const { errorHandler } = require('./middleware/errorHandler');
 const { generalLimiter } = require('./middleware/rateLimit');
 
@@ -22,6 +22,7 @@ const alertsRoutes = require('./routes/alerts');
 const analyticsRoutes = require('./routes/analytics');
 const demoRoutes = require('./routes/demo');
 const riskRoutes = require('./routes/risk');
+const wsRoutes = require('./routes/ws');
 
 const app = express();
 
@@ -46,8 +47,9 @@ app.use('/api/density', densityRoutes);
 app.use('/api/ingest', ingestRoutes);
 app.use('/api/v1/alerts', alertsRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/demo', demoRoutes);
+app.use('/api/v1/demo', demoRoutes);
 app.use('/api/v1/risk', riskRoutes);
+app.use('/api/v1/ws', wsRoutes);
 
 
 // Healthcheck
@@ -60,7 +62,7 @@ app.use(errorHandler);
 const server = http.createServer(app);
 
 // Attach WebSocket Server
-initWebSocket(server);
+wsManager.initWSServer(server);
 
 // --- CRON JOBS ---
 

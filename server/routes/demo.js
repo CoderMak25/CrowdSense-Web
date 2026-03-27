@@ -1,97 +1,197 @@
 const express = require('express');
 const router = express.Router();
-const { redisPubSub } = require('../config/redis');
+const mongoose = require('mongoose');
+const { redisClient } = require('../config/redis');
+
+// Models
 const Venue = require('../models/Venue');
-const Alert = require('../models/Alert');
 const CrowdReading = require('../models/CrowdReading');
-const { runFusionForZone } = require('../services/kalmanFusion');
-const { REDIS_KEYS } = require('../config/constants');
+const SensorLog = require('../models/SensorLog');
+const Alert = require('../models/Alert');
+const AlertSubscription = require('../models/AlertSubscription');
 
-// Memory state for demo
-let demoActive = false;
-let demoInterval = null;
+// Managers & Scripts
+const wsManager = require('../services/wsManager');
+const { seedVenues } = require('../scripts/seedVenues');
+const elphinstoneScript = require('../data/elphinstoneScript');
 
-// @desc    Trigger simulated crowd surge
-// @route   GET /api/demo/simulate
-// @access  Public
-router.get('/simulate', async (req, res, next) => {
+// State for Simulation
+let simStatus = {
+    running: false,
+    currentTick: 0,
+    totalTicks: 30,
+    startTime: null,
+    estimatedEnd: null,
+    intervalId: null
+};
+
+router.get('/venues', async (req, res) => {
     try {
-        if (demoActive) {
-             return res.json({ message: 'Demo already running' });
+        const venues = await Venue.find();
+        res.json(venues);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/status', async (req, res) => {
+    try {
+        res.json({
+            venuesSeeded: await Venue.countDocuments(),
+            totalReadings: await CrowdReading.countDocuments(),
+            totalSnapshots: await CrowdReading.countDocuments({ sensorSource: 'FUSION' }),
+            totalAlerts: await Alert.countDocuments(),
+            totalSubscribers: await AlertSubscription.countDocuments(),
+            wsConnectedClients: wsManager.getStats().totalClients,
+            redisConnected: redisClient && redisClient.isReady,
+            mongoConnected: mongoose.connection.readyState === 1,
+            fusionCronRunning: true, // Cron registered via index.js
+            readyForDemo: (await Venue.countDocuments() > 0),
+            issues: []
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/seed', async (req, res) => {
+    try {
+        const result = await seedVenues();
+        res.json(result);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.post('/reset', async (req, res) => {
+    try {
+        const oneMinuteAgo = new Date(Date.now() - 60000);
+        
+        const logsCleared = await SensorLog.deleteMany({ timestamp: { $lt: oneMinuteAgo } });
+        const snapsCleared = await CrowdReading.deleteMany({ sensorSource: 'FUSION' });
+        const alertsCleared = await Alert.deleteMany({});
+        
+        let redisKeysCleared = 0;
+        if (redisClient) {
+            const keys = await redisClient.keys('alert:cooldown:*');
+            if (keys.length > 0) {
+                await redisClient.del(keys);
+                redisKeysCleared = keys.length;
+            }
         }
 
-        const venueId = 'csmt01'; // Demo venue
-        const venue = await Venue.findOne({ venueId });
-        
-        if (!venue) {
-             return res.status(404).json({ message: "Seed data not found" });
-        }
+        res.json({
+            cleared: {
+                readings: logsCleared.deletedCount,
+                snapshots: snapsCleared.deletedCount,
+                alerts: alertsCleared.deletedCount,
+                redisKeys: redisKeysCleared
+            }
+        });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
 
-        demoActive = true;
-        let iteration = 0;
-        
-        // Target: Rapidly increase Main Hall density
-        const targetZone = venue.zones.find(z => z.name === 'Concourse Main') || venue.zones[0];
-        
-        console.log("Starting Demo Simulation for", targetZone.name);
+router.post('/simulate/elphinstone', async (req, res) => {
+    try {
+        if (simStatus.running) return res.status(400).json({ error: "Simulation already running" });
 
-        demoInterval = setInterval(async () => {
-             iteration++;
-             
-             // Base count starts at 100 and scales up rapidly
-             const simulatedCount = 100 + Math.floor(Math.pow(iteration, 2.5) * 5); 
-             
-             await CrowdReading.create({
-                 venueId,
-                 zoneId: targetZone.zoneId,
-                 count: simulatedCount,
-                 densityLabel: 'UNKNOWN',
-                 sensorSource: 'CCTV',
-                 confidence: 0.95
+        const { speedMultiplier = 1 } = req.body;
+        // Interval is base 30s divided by multiplier
+        const intervalMs = 30000 / speedMultiplier;
+        
+        simStatus.running = true;
+        simStatus.currentTick = 0;
+        simStatus.totalTicks = elphinstoneScript.length;
+        simStatus.startTime = Date.now();
+        simStatus.estimatedEnd = Date.now() + (elphinstoneScript.length * intervalMs);
+
+        res.json({
+            simulationId: "sim_" + Date.now(),
+            totalTicks: simStatus.totalTicks,
+            estimatedDuration: (elphinstoneScript.length * intervalMs) / 1000,
+            message: "Simulation started"
+        });
+
+        // Loop Runner
+        simStatus.intervalId = setInterval(async () => {
+             if (!simStatus.running) {
+                 clearInterval(simStatus.intervalId);
+                 return;
+             }
+
+             if (simStatus.currentTick >= simStatus.totalTicks) {
+                 clearInterval(simStatus.intervalId);
+                 simStatus.running = false;
+                 // Final Broadcast
+                 wsManager.broadcastToVenue('cst-mumbai', {
+                     event: "SIMULATION_COMPLETE",
+                     message: "Simulation complete",
+                     prevented: true,
+                     narrative: "CrowdSense prevented this. 22 lives saved."
+                 });
+                 return;
+             }
+
+             const tickData = elphinstoneScript[simStatus.currentTick];
+             // 1. Insert fake FUSION sensor reading to support History API charts
+             try {
+                const doc = new CrowdReading({
+                    venueId: tickData.venueId,
+                    zoneId: tickData.zoneId,
+                    count: Math.round(tickData.density * 800), // arbitrary max zone cap
+                    densityLabel: tickData.crowdLevel,
+                    sensorSource: 'FUSION',
+                    confidence: 0.99,
+                    riskScore: tickData.riskScore,
+                    crowdLevel: tickData.crowdLevel,
+                    triggeredBy: tickData.triggeredBy,
+                    isAnomaly: tickData.isAnomaly,
+                });
+                await doc.save();
+             } catch(err) { console.error("Sim Error inserting Fake Reading:", err); }
+
+             // 2. Broadcast CROWD_UPDATE
+             wsManager.broadcastToVenue(tickData.venueId, {
+                 event: "CROWD_UPDATE",
+                 venueId: tickData.venueId,
+                 zoneId: tickData.zoneId,
+                 density: tickData.density,
+                 riskScore: tickData.riskScore,
+                 crowdLevel: tickData.crowdLevel,
+                 triggeredBy: tickData.triggeredBy,
+                 isAnomaly: tickData.isAnomaly,
+                 motionLabel: tickData.motionLabel,
+                 sensorSources: ['SIMULATION'],
+                 narrative: tickData.narrative,
+                 timestamp: new Date().toISOString()
              });
 
-             // Force motion crush at iteration 10
-             if (iteration === 10) {
-                 await CrowdReading.create({
-                     venueId,
-                     zoneId: targetZone.zoneId,
-                     count: 0,
-                     densityLabel: 'CRUSH',
-                     sensorSource: 'MOTION',
-                     confidence: 0.99
+             // 3. Broadcast Alert on tick 21
+             if (tickData.alertFired) {
+                 wsManager.broadcastToVenue(tickData.venueId, {
+                     event: "SIMULATION_ALERT",
+                     message: tickData.alertMessage,
+                     riskScore: tickData.riskScore,
+                     narrative: tickData.narrative,
+                     timestamp: new Date().toISOString()
                  });
              }
 
-             // Trigger fusion which triggers alerts -> websockets
-             await runFusionForZone(venueId, targetZone.zoneId);
+             simStatus.currentTick++;
 
-             if (iteration >= 15) {
-                  // Stop demo after ~30 seconds (2s interval)
-                  clearInterval(demoInterval);
-                  demoActive = false;
-                  console.log("Demo Simulation Complete");
-             }
-        }, 2000);
+        }, intervalMs);
 
-        res.json({ success: true, message: 'Demo simulation started' });
-    } catch (error) {
-        demoActive = false;
-        next(error);
-    }
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// @desc    Reset demo data
-// @route   GET /api/demo/reset
-// @access  Public
-router.get('/reset', async (req, res, next) => {
-    try {
-        if (demoInterval) clearInterval(demoInterval);
-        demoActive = false;
+router.get('/simulate/elphinstone/status', (req, res) => {
+    res.json({
+        running: simStatus.running,
+        currentTick: simStatus.currentTick,
+        totalTicks: simStatus.totalTicks,
+        percentComplete: simStatus.running ? Math.round((simStatus.currentTick / simStatus.totalTicks) * 100) : 0,
+        estimatedEnd: simStatus.estimatedEnd ? new Date(simStatus.estimatedEnd).toISOString() : null
+    });
+});
 
-        res.json({ success: true, message: 'Demo reset' });
-    } catch (error) {
-        next(error);
-    }
+router.post('/simulate/elphinstone/stop', (req, res) => {
+    simStatus.running = false;
+    if (simStatus.intervalId) clearInterval(simStatus.intervalId);
+    res.json({ message: "Simulation stopped cleanly" });
 });
 
 module.exports = router;
